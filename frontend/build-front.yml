@@ -1,0 +1,37 @@
+# frontend/build-front.yml
+
+test-frontend:
+  stage: test
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npm run test
+  only:
+    - develop
+    - main
+
+build-frontend:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG --target production ./frontend
+    - docker tag $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG $CI_REGISTRY_IMAGE/frontend:latest
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/frontend:latest
+  only:
+    - main
+
+scan-frontend:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - trivy image --exit-code 0 --severity HIGH,CRITICAL $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG
+  allow_failure: true
+  only:
+    - main

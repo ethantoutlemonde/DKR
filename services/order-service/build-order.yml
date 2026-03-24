@@ -1,0 +1,37 @@
+# services/order-service/build-order.yml
+
+test-order:
+  stage: test
+  image: node:18-alpine
+  script:
+    - cd services/order-service
+    - npm ci
+    - npm test
+  only:
+    - develop
+    - main
+
+build-order:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/order-service:$IMAGE_TAG --target production ./services/order-service
+    - docker tag $CI_REGISTRY_IMAGE/order-service:$IMAGE_TAG $CI_REGISTRY_IMAGE/order-service:latest
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $CI_REGISTRY_IMAGE/order-service:$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/order-service:latest
+  only:
+    - main
+
+scan-order:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - trivy image --exit-code 0 --severity HIGH,CRITICAL $CI_REGISTRY_IMAGE/order-service:$IMAGE_TAG
+  allow_failure: true
+  only:
+    - main
