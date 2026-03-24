@@ -1,0 +1,124 @@
+version: "3.8"
+
+services:
+  # --- Bases de donnees ---
+
+  mongo-auth:
+    image: mongo:4.4
+    container_name: mongo-auth
+    volumes:
+      - mongo-auth-data:/data/db
+    networks:
+      - backend
+
+  mongo-products:
+    image: mongo:4.4
+    container_name: mongo-products
+    volumes:
+      - mongo-products-data:/data/db
+    networks:
+      - backend
+
+  mongo-orders:
+    image: mongo:4.4
+    container_name: mongo-orders
+    volumes:
+      - mongo-orders-data:/data/db
+    networks:
+      - backend
+
+  # --- Services backend ---
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      target: development
+    container_name: auth-service
+    environment:
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongo-auth:27017/auth
+      - JWT_SECRET=XdZGHks
+      - NODE_ENV=development
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./services/auth-service/src:/app/src
+    depends_on:
+      - mongo-auth
+    networks:
+      - backend
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: ./services/product-service
+      target: development
+    container_name: product-service
+    environment:
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongo-products:27017/ecommerce
+      - JWT_SECRET=XdZGHks
+      - NODE_ENV=development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./services/product-service/src:/app/src
+    depends_on:
+      - mongo-products
+    networks:
+      - backend
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: ./services/order-service
+      target: development
+    container_name: order-service
+    environment:
+      - PORT=3002
+      - MONGODB_URI=mongodb://mongo-orders:27017/orders
+      - JWT_SECRET=XdZGHks
+      - VITE_PRODUCT_SERVICE_URL=http://product-service:3000
+      - NODE_ENV=development
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./services/order-service/src:/app/src
+    depends_on:
+      - mongo-orders
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # --- Frontend ---
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: frontend
+    environment:
+      - VITE_PRODUCT_SERVICE_URL=http://product-service:3000
+      - VITE_AUTH_SERVICE_URL=http://auth-service:3001
+      - VITE_ORDER_SERVICE_URL=http://order-service:3002
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+    networks:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mongo-auth-data:
+  mongo-products-data:
+  mongo-orders-data:
+
+networks:
+  backend:
+    driver: bridge

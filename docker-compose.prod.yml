@@ -1,0 +1,130 @@
+version: "3.8"
+
+services:
+  # --- Bases de donnees ---
+
+  mongo-auth:
+    image: mongo:4.4
+    volumes:
+      - mongo-auth-data:/data/db
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  mongo-products:
+    image: mongo:4.4
+    volumes:
+      - mongo-products-data:/data/db
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  mongo-orders:
+    image: mongo:4.4
+    volumes:
+      - mongo-orders-data:/data/db
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  # --- Services backend ---
+
+  auth-service:
+    image: ${CI_REGISTRY_IMAGE:-localhost:5000}/auth-service:${IMAGE_TAG:-latest}
+    environment:
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongo-auth:27017/auth
+      - JWT_SECRET=${JWT_SECRET:-XdZGHks}
+      - NODE_ENV=production
+    depends_on:
+      - mongo-auth
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.50"
+
+  product-service:
+    image: ${CI_REGISTRY_IMAGE:-localhost:5000}/product-service:${IMAGE_TAG:-latest}
+    environment:
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongo-products:27017/ecommerce
+      - JWT_SECRET=${JWT_SECRET:-XdZGHks}
+      - NODE_ENV=production
+    depends_on:
+      - mongo-products
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.50"
+
+  order-service:
+    image: ${CI_REGISTRY_IMAGE:-localhost:5000}/order-service:${IMAGE_TAG:-latest}
+    environment:
+      - PORT=3002
+      - MONGODB_URI=mongodb://mongo-orders:27017/orders
+      - JWT_SECRET=${JWT_SECRET:-XdZGHks}
+      - VITE_PRODUCT_SERVICE_URL=http://product-service:3000
+      - NODE_ENV=production
+    depends_on:
+      - mongo-orders
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.50"
+
+  # --- Frontend ---
+
+  frontend:
+    image: ${CI_REGISTRY_IMAGE:-localhost:5000}/frontend:${IMAGE_TAG:-latest}
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
+volumes:
+  mongo-auth-data:
+  mongo-products-data:
+  mongo-orders-data:
+
+networks:
+  backend:
+    driver: overlay
