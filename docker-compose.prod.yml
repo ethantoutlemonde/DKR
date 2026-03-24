@@ -35,7 +35,7 @@ services:
     environment:
       - PORT=3001
       - MONGODB_URI=mongodb://mongo-auth:27017/auth
-      - JWT_SECRET=${JWT_SECRET:-efrei_super_pass}
+      - JWT_SECRET=${JWT_SECRET:-XdZGHks}
       - NODE_ENV=production
     depends_on:
       - mongo-auth
@@ -51,7 +51,7 @@ services:
     environment:
       - PORT=3000
       - MONGODB_URI=mongodb://mongo-products:27017/ecommerce
-      - JWT_SECRET=${JWT_SECRET:-efrei_super_pass}
+      - JWT_SECRET=${JWT_SECRET:-XdZGHks}
       - NODE_ENV=production
     depends_on:
       - mongo-products
